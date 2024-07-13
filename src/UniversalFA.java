@@ -34,75 +34,100 @@ public class UniversalFA {
      * @param path the file path of the FA configuration
      * @throws IOException if there is an error reading the file
      */
-    private void loadConfiguration(String path) throws IOException {
-        BufferedReader reader = new BufferedReader(new FileReader(path));
-        String line;
-        boolean readingTransitions = false;
-        boolean readingTestStrings = false;
 
-        while ((line = reader.readLine()) != null) {
-            if (line.startsWith("num_states:")) {
-                continue;
-            } else if (line.startsWith("final_states:")) {
-                for (String state : line.split(": ")[1].split(", ")) {
-                    finalStates.add(Integer.parseInt(state.trim()));
-                }
-            } else if (line.startsWith("alphabet:")) {
-                alphabet.clear();
-                // Remove all white spaces and then convert to char array
-                String cleaned = line.split(": ")[1].replaceAll("\\s+", "");
-                for (char c : cleaned.toCharArray()) {
-                    if (c != ',')
-                    { // To ensure that commas are not added as characters
-                         alphabet.add(c);
-        }
-    }
-            } else if (line.startsWith("transitions:")) {
-                readingTransitions = true;
-            } else if (line.startsWith("test_strings:")) {
-                readingTransitions = false;
-                readingTestStrings = true;
-            } else if (readingTransitions && line.contains(",")) {
-                String[] parts = line.split(", ");
-                int state = Integer.parseInt(parts[0].trim());
-                char input = parts[1].trim().charAt(0);
-                int nextState = Integer.parseInt(parts[2].trim());
-                transitionTable.put(new Pair<>(state, input), nextState);
-            } else if (readingTestStrings && !line.isEmpty()) {
-                testStrings.add(line);
+private void loadConfiguration(String path) throws IOException {
+    BufferedReader reader = new BufferedReader(new FileReader(path));
+    String line;
+    boolean readingTransitions = false;
+    boolean readingTestStrings = false;
+
+    while ((line = reader.readLine()) != null) {
+        line = line.trim();  // Trim any leading or trailing spaces
+        if (line.startsWith("num_states:")) {
+            // This line is currently unused
+            continue;
+        } else if (line.startsWith("final_states:")) {
+            String[] states = line.split(":")[1].trim().split(",");
+            for (String state : states) {
+                finalStates.add(Integer.parseInt(state.trim()));  // Ensure spaces are trimmed
             }
-        }
-        reader.close();
-    }
+        } else if (line.startsWith("alphabet:")) {
+            alphabet.clear();
+            String[] characters = line.split(":")[1].replaceAll("\\s+", "").split(",");
+            for (String c : characters) {
+                if (!c.isEmpty()) {
+                    alphabet.add(c.charAt(0));
+                }
+            }
+        } else if (line.startsWith("transitions:")) {
+            readingTransitions = true;
+        } else if (line.startsWith("test_strings:")) {
+            readingTransitions = false;
+            readingTestStrings = true;
+        } else if (readingTransitions && line.contains(",")) {
+            String[] parts = line.split(",\\s*");  // Allow optional spaces after commas
+            int state = Integer.parseInt(parts[0].trim());
+            String inputRange = parts[1].trim();
+            int nextState = Integer.parseInt(parts[2].trim());
 
-    /**
+            if (inputRange.contains("-")) {
+                char start = inputRange.charAt(0);
+                char end = inputRange.charAt(2);
+                for (char c = start; c <= end; c++) {
+                    transitionTable.put(new Pair<>(state, c), nextState);
+                }
+            } else {
+                char input = inputRange.charAt(0);
+                transitionTable.put(new Pair<>(state, input), nextState);
+            }
+        } else if (readingTestStrings && !line.isEmpty()) {
+            testStrings.add(line);
+        }
+    }
+    reader.close();
+}
+
+   /**
      * Processes and prints the results for all test strings by evaluating them through the FA.
      */
+
     public void processAndPrintResults() {
     System.out.println("Inputted Finite State Automaton Info:");
+
+    // Printing set of states
     System.out.print("1) set of states: {");
     Set<Integer> states = new HashSet<>();
     transitionTable.forEach((key, value) -> {
         states.add(key.first);
         states.add(value);
     });
-    states.forEach(state -> System.out.print("state " + state + " "));
+    System.out.print(states.stream().map(state -> "state " + state).collect(Collectors.joining(", ")));
     System.out.println("}, initial state is state " + initialState + " (default).");
 
+    // Printing set of final states
     System.out.print("2) set of final state(s): {");
-    finalStates.forEach(state -> System.out.print("state " + state + " "));
+    System.out.print(finalStates.stream().map(state -> "state " + state).collect(Collectors.joining(", ")));
     System.out.println("}");
 
+    // Printing alphabet set
     System.out.println("3) alphabet set: {" + alphabet.stream().map(String::valueOf).collect(Collectors.joining(", ")) + "}");
     System.out.println("4) transitions:");
     transitionTable.forEach((key, value) -> System.out.println("   " + key.first + " " + key.second + " " + value));
 
+    // Processing and printing test strings results
     System.out.println("Results of test strings:");
     for (String string : testStrings) {
-        String result = processString(string) ? "Accept" : "Reject";
-        System.out.println(string + ": " + result);
+        if (string.equals("Λ")) {  // Check if the string is the empty string notation
+            // Directly determines the result based on whether the initial state is a final state
+            String result = finalStates.contains(initialState) ? "Accept" : "Reject";
+            System.out.println("Λ: " + result);
+        } else {
+            String result = processString(string) ? "Accept" : "Reject";
+            System.out.println(string + ": " + result);
+        }
     }
 }
+
 
 
     /**
@@ -134,7 +159,7 @@ public class UniversalFA {
      */
     public static void main(String[] args) {
         try {
-            UniversalFA fa = new UniversalFA("fa_configuration.txt");
+            UniversalFA fa = new UniversalFA("C:\\Users\\zazor\\OneDrive\\Desktop\\CS 3650\\fa_configuration2.txt");
             fa.processAndPrintResults();
         } catch (IOException e) {
             System.out.println("Error reading configuration file: " + e.getMessage());
